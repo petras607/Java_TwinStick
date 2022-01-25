@@ -10,6 +10,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.geom.AffineTransform;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Random;
 
 import javax.swing.JPanel;
@@ -31,9 +33,11 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	private int mouse_pos_x;
 	private int mouse_pos_y;
 	// Obiekty u¿ywanych klas
-	private Player player;
-	private Enemy[] enemy;
-	private Shot[] player_shot;
+	private Player player = null;
+	private ArrayList<Enemy> enemy_list;
+	private ArrayList<Shot> player_shot_list;
+	private ArrayList<Shot> enemy_shot_list;
+	private ArrayList<PickUp> pickup_list;
 	private Thread animator;	// W¹tek dla animacji
 	private boolean is_player_shot_created;	// Czy stworzono strza³ gracza
 	private int shot_delay;	// Opóznienie po strzale
@@ -41,6 +45,7 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	private int spawn_delay;
 	private boolean is_bomb_detonated;
 	private int bombs;	// Zapas bomb
+	private int enemies_killed;
 	private boolean spawn_special = false;	// Czy nastêpny wróg do zrobienia jest specjalnym wrogiem
 	
 	/**
@@ -69,25 +74,25 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	public void start()
 	{
 		// Tworzymy gracza
-		player = new Player();
+		//player = new Player();
 		
-		// Tworzymy wrogów i ich strza³y
-		enemy = new Enemy[ENEMY_COUNT];
+		// Tworzymy wrogów
+		enemy_list = new ArrayList<Enemy>();
 		
-		for (int i = 0; i < ENEMY_COUNT; i++)
+		/*for (int i = 0; i < ENEMY_COUNT; i++)
 		{
 			enemy[i] = new Enemy();
 			enemy[i].setVisible(false);
-		}
+		}*/
 		
 		// Tworzymy strza³y gracza
-		player_shot = new Shot[PLAYER_SHOT_COUNT];
+		player_shot_list = new ArrayList<Shot>();
 		
-		for (int i = 0; i < PLAYER_SHOT_COUNT; i++)
-		{
-			player_shot[i] = new Shot();
-			player_shot[i].setVisible(false);
-		}
+		// Tworzymy strza³y wroga
+		enemy_shot_list = new ArrayList<Shot>();
+		
+		// Tworzymy znajdzki
+		pickup_list = new ArrayList<PickUp>();
 		
 		// Zmienne i flagi do implementacji opóznieñ
 		is_player_shot_created = false;
@@ -98,6 +103,7 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 		bombs = START_BOMBS;
 		
 		score = 0;
+		enemies_killed = 0;
 		
 		is_started = false;
 		is_paused = false;
@@ -117,9 +123,8 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	 */
 	public void drawPlayer(Graphics g)
 	{
-		if (player.isVisible())
+		if (player != null)
 			player.getImageIcon().paintIcon(this, g, player.getX(), player.getY());
-		
 	}
 	
 	/**
@@ -128,12 +133,8 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	 */
 	public void drawEnemies(Graphics g)
 	{
-		for (int i = 0; i < ENEMY_COUNT; i++)
-		{
-			if (enemy[i].isVisible())
-				enemy[i].getImageIcon().paintIcon(this, g, enemy[i].getX(), enemy[i].getY());
-			
-		}
+		for (int i = 0; i < enemy_list.size(); i++) // ENEMY_COUNT
+			enemy_list.get(i).getImageIcon().paintIcon(this, g, enemy_list.get(i).getX(), enemy_list.get(i).getY());
 	}
 	
 	/**
@@ -142,17 +143,15 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	 */
 	public void drawPlayerShots(Graphics2D g)
 	{
-		for (int i = 0; i < PLAYER_SHOT_COUNT; i++)
+		for (int i = 0; i < player_shot_list.size(); i++)	// PLAYER_SHOT_COUNT
 		{
-			if (player_shot[i].isVisible())
-			{
-				AffineTransform old = g.getTransform();
+			AffineTransform old = g.getTransform();
 				
-				g.rotate(player_shot[i].getRotation(), player_shot[i].getX() + player_shot[i].getDiameter() / 2, player_shot[i].getY() + player_shot[i].getDiameter() / 2);
-				player_shot[i].getImageIcon().paintIcon(this, g, player_shot[i].getX(), player_shot[i].getY());
+			g.rotate(player_shot_list.get(i).getRotation(), player_shot_list.get(i).getX() + player_shot_list.get(i).getDiameter() / 2,
+					player_shot_list.get(i).getY() + player_shot_list.get(i).getDiameter() / 2);
+			player_shot_list.get(i).getImageIcon().paintIcon(this, g, player_shot_list.get(i).getX(), player_shot_list.get(i).getY());
 				
-				g.setTransform(old);
-			}	
+			g.setTransform(old);
 		}	
 	}
 	
@@ -162,18 +161,27 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	 */
 	public void drawEnemyShots(Graphics2D g)
 	{
-		for (int i = 0; i < ENEMY_COUNT; i++)
+		for (int i = 0; i < enemy_shot_list.size(); i++)	// ENEMY_COUNT
 		{
-			if (enemy[i].isVisible() && enemy[i].shot.isVisible())
-			{
-				AffineTransform old = g.getTransform();
+			AffineTransform old = g.getTransform();
 				
-				g.rotate(enemy[i].shot.getRotation(), enemy[i].shot.getX() + enemy[i].shot.getDiameter() / 2, enemy[i].shot.getY() + enemy[i].shot.getDiameter() / 2);
-				enemy[i].shot.getImageIcon().paintIcon(this, g, enemy[i].shot.getX(), enemy[i].shot.getY());
+			g.rotate(enemy_shot_list.get(i).getRotation(), enemy_shot_list.get(i).getX() + enemy_shot_list.get(i).getDiameter() / 2,
+					enemy_shot_list.get(i).getY() + enemy_shot_list.get(i).getDiameter() / 2);
+			enemy_shot_list.get(i).getImageIcon().paintIcon(this, g, enemy_shot_list.get(i).getX(), enemy_shot_list.get(i).getY());
 				
-				g.setTransform(old);
-			}
+			g.setTransform(old);
+			
 		}
+	}
+	
+	/**
+	 * Ta metoda wyœwietla obiekty przedmiotów do podniesienia na ekranie
+	 * @param g - Obiekt klasy Graphics, na którym mamy wyœwietliæ dany obiekt.
+	 */
+	public void drawPickups(Graphics2D g)
+	{
+		for (int i = 0; i < pickup_list.size(); i++)
+			pickup_list.get(i).getImageIcon().paintIcon(this, g, pickup_list.get(i).getX(), pickup_list.get(i).getY());
 	}
 	
 	/**
@@ -237,6 +245,7 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 			drawEnemies(g);
 			drawPlayerShots(g2d);
 			drawEnemyShots(g2d);
+			drawPickups(g2d);
 			drawUI(g);
 		}
 		else
@@ -259,9 +268,9 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 	 */
 	public void gameCycle()
 	{
-		if (!player.isVisible())
+		if (player == null)
 		{
-			player.spawn();
+			player = new Player();
 			is_player_just_spawned = true;
 		}
 		
@@ -276,66 +285,106 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 			}
 		}
 		
-		// Gracz
+		// Ruch gracza
 		player.move();
 		
 		// Jeœli gracz koliduje z wrogiem albo jego strza³em, gracz ginie
-		for (int i = 0; i < ENEMY_COUNT; i++)
+		for (int i = 0; i < enemy_list.size(); i++)
 		{
-			if (enemy[i].isVisible())
-			{
-				if (enemy[i].isCollided(player.getCenterX(), player.getCenterY(), player.getDiameter()))
-					player.die();
-			}
+			if (enemy_list.get(i).isCollided(player.getCenterX(), player.getCenterY(), player.getDiameter()))
+				player.die();
+		}
+		
+		for (int i = 0; i < enemy_shot_list.size(); i++)
+		{
+			if (player.isCollided(enemy_shot_list.get(i).getCenterX(), enemy_shot_list.get(i).getCenterY(), enemy_shot_list.get(i).getDiameter()))
+				player.die();
+		}
+		
+		int current_sec = LocalTime.now().getSecond();
+		
+		// Ruch znajdziek
+		for (int i = 0; i < pickup_list.size(); i++)
+		{
+			pickup_list.get(i).move();
 			
-			if (enemy[i].shot.isVisible())
+			// Kiedy czas znajdziek minie, usuwamy
+			if (current_sec - pickup_list.get(i).spawnSec >= LIFE_SPAN || (current_sec + 60 - pickup_list.get(i).spawnSec >= LIFE_SPAN && current_sec < pickup_list.get(i).spawnSec))
 			{
-				if (player.isCollided(enemy[i].shot.getCenterX(), enemy[i].shot.getCenterY(), enemy[i].shot.getDiameter()))
-					player.die();
+				pickup_list.remove(i);
+				i--;
 			}
 		}
 		
-		// Strza³ gracza		
-		for (int i = 0; i < PLAYER_SHOT_COUNT; i++)
+		// Jeœli gracz koliduje ze znajdzka, podnies ja i zdobadz punkty
+		for (int i = 0; i < pickup_list.size(); i++)
 		{
-			// Tworzymy jeœli mo¿emy
-			if (!player_shot[i].isVisible() && is_mouse_pressed == true && is_player_shot_created == false)
+			if (pickup_list.get(i).isCollided(player.getCenterX(), player.getCenterY(), player.getDiameter()))
 			{
-				player_shot[i] = new Shot(player.getX() + player.getDiameter() / 2, player.getY() + player.getDiameter() / 2, mouse_pos_x, mouse_pos_y, PLAYER_SHOT_SPEED, PLAYER_SHOT_IMG);
-				is_player_shot_created = true;
+				score += PICKUP_SCORE_GAIN;
+				
+				// Jeœli to bomba, zwiêksz zapas
+				if (pickup_list.get(i).is_bomb)
+					bombs++;
+				
+				pickup_list.remove(i);
+				i--;
 			}
-			
-			if (player_shot[i].isVisible())
+		}
+		
+		// Strza³y gracza
+		// Jeœli przekracza granice okna, niszczymy
+		for (int i = 0; i < player_shot_list.size(); i++)
+		{
+			if (player_shot_list.get(i).getX() < 0 || player_shot_list.get(i).getX() > BOARD_WIDTH
+					|| player_shot_list.get(i).getY() < 0 || player_shot_list.get(i).getY() > BOARD_HEIGHT)
+			{	
+				player_shot_list.remove(i);
+				i--;
+			}
+			// Ruch strza³ gracza
+			else
+				player_shot_list.get(i).move();
+		}
+		
+		// Jeœli koliduje siê z wrogiem, niszczymy strza³y i wroga, dodajemy punkt. Wróg po œmierci tworzy 3 znajdzki,
+		// co 10 zabitych wrogów pojawia siê bomba do podniesienia.
+		for (int i = 0; i < player_shot_list.size(); i++)
+		{
+			for (int j = 0; j < enemy_list.size(); j++)
 			{
-				// Jeœli przekracza granice okna, niszczymy
-				if (player_shot[i].getX() < 0 || player_shot[i].getX() > BOARD_WIDTH || player_shot[i].getY() < 0 || player_shot[i].getY() > BOARD_HEIGHT)
-					player_shot[i].stop();
-				
-				
-				// Jeœli koliduje siê z wrogiem, niszczymy strza³y i wroga oraz dodajemy punkt.
-				for (int j = 0; j < ENEMY_COUNT; j++)
+				if (enemy_list.get(j).isCollided(player_shot_list.get(i).getCenterX(), player_shot_list.get(i).getCenterY(),
+												player_shot_list.get(i).getDiameter()))
 				{
-					if (enemy[j].isVisible())
+					enemies_killed++;
+					
+					if (enemies_killed % 10 == 0)
+						pickup_list.add(new PickUp(enemy_list.get(j).getCenterX(), enemy_list.get(j).getCenterY(), true));
+					else
 					{
-						if (enemy[j].isCollided(player_shot[i].getCenterX(), player_shot[i].getCenterY(), player_shot[i].getDiameter()))
-						{
-							enemy[j].setVisible(false);
-							player_shot[i].stop();
-							enemy[j].shot.stop();
-							score += 10;
-							
-							// Jeœli ten wróg jest specjalny, przywróæ pocz¹tkowy zapas bomb.
-							if (enemy[j].getSpecial())
-							{
-								bombs = START_BOMBS;
-								enemy[j].setSpecial(false);
-							}
-						}
+						for (int k = 0; k < ITEM_SPAWN_COUNT; k++)
+							pickup_list.add(new PickUp(enemy_list.get(j).getCenterX(), enemy_list.get(j).getCenterY(), false));
 					}
+					
+					
+					enemy_list.remove(j);
+					player_shot_list.remove(i);
+					i--;
+					j--;
+					score += 10;
+					break;
 				}
-				
-				// Ruszamy
-				player_shot[i].move();
+			}
+		}
+		
+		// Tworzymy strza³ gracza jeœli mo¿emy
+		if (player_shot_list.size() < PLAYER_SHOT_COUNT)
+		{
+			if (is_mouse_pressed && !is_player_shot_created)
+			{
+				player_shot_list.add(new Shot(player.getX() + player.getDiameter() / 2, player.getY() + player.getDiameter() / 2,
+									mouse_pos_x, mouse_pos_y, PLAYER_SHOT_SPEED, PLAYER_SHOT_IMG));
+				is_player_shot_created = true;
 			}
 		}
 		
@@ -351,73 +400,76 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 			}
 		}
 		
-		// Wrogowie, detonacja bomby
-		for (int i = 0; i < ENEMY_COUNT; i++)
+		// Detonacja bomby
+		if (is_bomb_detonated)
 		{
-			// Jeœli wróg w danym slocie nie istnieje, jest szansa, ¿e siê pojawi
-			if (!enemy[i].isVisible() && !is_player_just_spawned && !is_bomb_detonated)
+			for (int i = enemy_list.size() - 1; i >= 0; i--)
 			{
-				Random generator = new Random();
-				
-				if (generator.nextInt(100) <= ENEMY_SPAWN_CHANCE)
-				{
-					enemy[i].spawn(player.getCenterX(), player.getCenterY());
-					
-					if (spawn_special)
-					{
-						enemy[i].setSpecial(true);
-						spawn_special = false;
-					}
-					
-					is_player_just_spawned = true;
-				}
+				enemy_list.remove(i);
+				score += 10;
 			}
 			
-			if (enemy[i].isVisible())
+			for (int i = enemy_shot_list.size() - 1; i >= 0; i--)
 			{
-				// Jeœli zdetonowano bombê, zniszcz wszystkich wrogów i ich strza³y oraz przyznaj punkty.
-				if (is_bomb_detonated)
-				{
-					enemy[i].setVisible(false);
-					enemy[i].shot.stop();
-					score += 10;
-				}
-				else
-					// Wróg siê rusza.
-					enemy[i].move(player.getCenterX(), player.getCenterY());
+				enemy_shot_list.remove(i);
+				score += 10;
 			}
+			
+			is_bomb_detonated = false;
+		}
+		
+		// Jeœli wróg w danym slocie nie istnieje, jest szansa, ¿e siê pojawi
+		if (enemy_list.size() < ENEMY_COUNT && !is_player_just_spawned)
+		{
+			Random generator = new Random();
+			
+			if (generator.nextInt(100) <= ENEMY_SPAWN_CHANCE)
+			{
+				enemy_list.add(new Enemy(player.getCenterX(), player.getCenterY(), spawn_special));
+				
+				spawn_special = false;
+				is_player_just_spawned = true;
+			}
+		}
+		
+		// Ruch wrogów
+		for (int i = 0; i < enemy_list.size(); i++) // ENEMY_COUNT
+		{
+			enemy_list.get(i).move(player.getCenterX(), player.getCenterY());
 		}
 		
 		// Strza³y wroga
-		for (int i = 0; i < ENEMY_COUNT; i++)
+		for (int i = 0; i < enemy_shot_list.size(); i++)
 		{
-			if (!enemy[i].shot.isVisible() && enemy[i].isVisible())
-				enemy[i].shoot(player.getCenterX(), player.getCenterY());
-
-			if (enemy[i].shot.isVisible())
+			// Jeœli przekracza granice okna, niszczymy.
+			if (enemy_shot_list.get(i).getX() < 0 || enemy_shot_list.get(i).getX() > BOARD_WIDTH
+					|| enemy_shot_list.get(i).getY() < 0 || enemy_shot_list.get(i).getY() > BOARD_HEIGHT)
 			{
-				// Jeœli przekracza granice okna, niszczymy.
-				if (enemy[i].shot.getX() < 0 || enemy[i].shot.getX() > BOARD_WIDTH || enemy[i].shot.getY() < 0 || enemy[i].shot.getY() > BOARD_HEIGHT)
-					enemy[i].shot.stop();
-				
-				// Ruch strza³u wroga.
-				enemy[i].shot.move();
+				enemy_shot_list.remove(i);
+				i--;
 			}
+			// Ruch strza³u wroga.
+			else
+				enemy_shot_list.get(i).move();
 		}
 		
-		// Jeœli zdetonowano bombê, wy³¹cz flagê.
-		is_bomb_detonated = false;
+		// Wrogowie strzelaj¹ jeœli mog¹
+		for (int i = 0; i < enemy_list.size(); i++)
+		{
+			if (enemy_list.get(i).canShoot())
+				enemy_shot_list.add(enemy_list.get(i).shoot(player.getCenterX(), player.getCenterY()));
+		}
 		
 		// Jeœli gracz ginie, koniec gry.
 		if (player.isDead())
 		{
-			for (int i = 0; i < ENEMY_COUNT; i++)
-				enemy[i] = new Enemy();
+			enemy_list = new ArrayList<Enemy>();
 			
-			for (int i = 0; i < PLAYER_SHOT_COUNT; i++)
-				player_shot[i].setVisible(false);
+			enemy_shot_list = new ArrayList<Shot>();
 			
-			player.setVisible(false);
+			player_shot_list = new ArrayList<Shot>();
+			
+			player = null;
 			is_finished = true;
 		}
 	}	
@@ -559,7 +611,8 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 			if (is_finished)
 				start();
 			
-			player.keyPressed(e);
+			if (player != null)
+				player.keyPressed(e);
 			
 			int key = e.getKeyCode();
 			
@@ -574,6 +627,10 @@ public class Board extends JPanel implements Runnable, MouseListener, MouseMotio
 		 * @param e Obiekt klasy KeyEvent, z którego odczytywany jest klawisz.
 		 */
 		@Override
-		public void keyReleased(KeyEvent e) { player.keyReleased(e); }
+		public void keyReleased(KeyEvent e)
+		{
+			if (player != null)
+				player.keyReleased(e);
+		}
 	}
 }

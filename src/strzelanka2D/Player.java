@@ -10,9 +10,10 @@ public class Player extends Object implements Commons
 {
 	private int diameter;	// Œrednica obrazu gracza
 	// Pozycja centrum dla wyznaczania kolizji
-	private double center_x;
-	private double center_y;
+	//private double center_x;
+	//private double center_y;
 	private boolean dying;	// Czy gracz zgin¹³.
+	private boolean[] move_direction = {false, false, false, false};	// Lewo, góra, prawo, dó³
 	
 	/**
 	 * Ten konstruktor inicjalizuje podstawowe parametry dla obiektu gracza.
@@ -23,21 +24,11 @@ public class Player extends Object implements Commons
 		setImageIcon(PLAYER_IMG);	// Wczytujemy sprite
 		diameter = getImageIcon().getImage().getWidth(null);	// Pobieramy szerokoœæ sprite'a
 		mov_speed = 4;
-		this.setVisible(false);
-	}
-	
-	/**
-	 * Ta metoda ustawia gracza na œrodku pola gry i w³¹cza flagê widzialnoœci.
-	 */
-	public void spawn()
-	{
+		
 		// Gracz pojawia sie na srodku pola gry
 		pos_x = BOARD_WIDTH / 2;
 		pos_y = BOARD_HEIGHT / 2;
-		center_x = pos_x + diameter / 2;
-		center_y = pos_y + diameter / 2;
 		dying = false;
-		this.setVisible(true);
 	}
 	
 	/**
@@ -62,19 +53,34 @@ public class Player extends Object implements Commons
 	 * Ta metoda odczytuje koordynat X œrodka obiektu.
 	 * @return Koordynat X œrodka obiektu.
 	 */
-	public int getCenterX() { return (int) Math.round(center_x);}
+	public int getCenterX() { return (int) Math.round(pos_x + diameter / 2);}
 	
 	/**
 	 * Ta metoda odczytuje koordynat Y œrodka obiektu.
 	 * @return Koordynat Y œrodka obiektu.
 	 */
-	public int getCenterY() { return (int) Math.round(center_y);}
+	public int getCenterY() { return (int) Math.round(pos_y + diameter / 2);}
 	
 	/**
 	 * Ta metoda zmienia pozycjê obiektu zgodnie z kierunkiem ustalanym przez metody keyPressed i keyReleased.
 	 */
 	public void move()
 	{
+		// Ustawianie ruchu
+		if (move_direction[0])
+			mov_x = -mov_speed;
+		else if (move_direction[2])
+			mov_x = mov_speed;
+		else
+			mov_x = 0;
+		
+		if (move_direction[1])
+			mov_y = -mov_speed;
+		else if (move_direction[3])
+			mov_y = mov_speed;
+		else
+			mov_y = 0;
+		
 		// Wspolrzedna x
 		pos_x += mov_x;
 		
@@ -85,8 +91,6 @@ public class Player extends Object implements Commons
 		if (pos_x > BOARD_WIDTH - diameter)
 			pos_x = BOARD_WIDTH - diameter;
 		
-		center_x = pos_x + diameter / 2;
-		
 		// Wspolrzedna y
 		pos_y += mov_y;
 		
@@ -95,8 +99,6 @@ public class Player extends Object implements Commons
 		
 		if (pos_y > BOARD_HEIGHT - diameter)
 			pos_y = BOARD_HEIGHT - diameter;
-		
-		center_y = pos_y + diameter / 2;
 	}
 	
 	/**
@@ -108,6 +110,9 @@ public class Player extends Object implements Commons
 	 */
 	public boolean isCollided(int x, int y, int diameter)
 	{
+		double center_x = pos_x + diameter / 2;
+		double center_y = pos_y + diameter / 2;
+		
 		// Jeœli odleg³oœæ pomiêdzy œrodkami ko³a jest krótsza od sumy promieni, ko³a siê koliduj¹
 		if ((center_x - x) * (center_x - x) + (center_y - y) * (center_y - y) < (this.diameter / 2 + diameter / 2) * (this.diameter / 2 + diameter / 2))
 			return true;
@@ -128,19 +133,19 @@ public class Player extends Object implements Commons
 		
 		// Lewo
 		if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A)
-			mov_x = -mov_speed;
+			move_direction[0] = true;
 		
 		// Prawo
 		if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D)
-			mov_x = mov_speed;
+			move_direction[2] = true;
 		
 		// Góra
 		if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W)
-			mov_y = -mov_speed;
+			move_direction[1] = true;
 		
 		// Dó³
 		if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S)
-			mov_y = mov_speed;
+			move_direction[3] = true;
 	}
 	
 	/**
@@ -156,18 +161,18 @@ public class Player extends Object implements Commons
 		
 		// Lewo
 		if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A)
-			mov_x = 0;
+			move_direction[0] = false;
 		
 		// Prawo
 		if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D)
-			mov_x = 0;
+			move_direction[2] = false;
 		
 		// Góra
 		if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W)
-			mov_y = 0;
+			move_direction[1] = false;
 		
 		// Dó³
 		if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S)
-			mov_y = 0;
+			move_direction[3] = false;
 	}
 }

@@ -8,33 +8,20 @@ import javax.swing.ImageIcon;
  */
 public class Object
 {
-	private boolean visible;	// Widzialnoœæ obiektu
 	private ImageIcon image;	// Obraz u¿ywany dla obiektu
 	// Obecna pozycja obiektu
 	protected double pos_x;
 	protected double pos_y;
 	// Wektor ruchu dla obiektu
-	protected int mov_x;	
-	protected int mov_y;
+	protected double mov_x;	
+	protected double mov_y;
 	protected int mov_speed;	// Predkosc obiektu
 	
 	/**
 	 * Ta metoda zmienia widzialnoœæ obiektu
 	 * @param vis Docelowa widzialnoœæ obiektu
 	 */
-	public void setVisible(boolean vis) { visible = vis; }
-	
-	/**
-	 * Ta metoda odczytuje obecn¹ widzialnoœæ obiektu
-	 * @return Widzialnoœæ obiektu.
-	 */
-	public boolean isVisible() { return visible; }
-	
-	/**
-	 * Ta metoda ustawia obraz, który bêdzie reprezentowaæ ten obiekt na ekranie
-	 * poprzez odczytywanie obrazu z podanej œcie¿ki.
-	 * @param image Œcie¿ka do obrazu.
-	 */
+
 	public void setImageIcon(String image) { this.image = new ImageIcon(image); }
 	
 	/**
